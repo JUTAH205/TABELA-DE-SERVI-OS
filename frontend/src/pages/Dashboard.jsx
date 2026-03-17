@@ -160,7 +160,7 @@ export default function Dashboard() {
             <table className="service-table w-full" data-testid="recent-services-table">
               <thead>
                 <tr>
-                  <th>N.</th>
+                  <th>N. Controlo</th>
                   <th>Tipo</th>
                   <th>Posto</th>
                   <th>Data</th>
@@ -183,7 +183,7 @@ export default function Dashboard() {
                       onClick={() => navigate(`/${s.tipo_formulario}/editar/${s.id}`)}
                       data-testid={`service-row-${s.numero_servico}`}
                     >
-                      <td className="font-mono font-bold">{s.numero_servico}</td>
+                      <td className="font-mono font-bold whitespace-nowrap">{s.numero_controlo}</td>
                       <td>
                         <span className={s.tipo_formulario === "navios" ? "badge-navios" : "badge-policiamentos"}>
                           {s.tipo_formulario === "navios" ? "Navios" : "Policia"}

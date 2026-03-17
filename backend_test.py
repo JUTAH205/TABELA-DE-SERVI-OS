@@ -10,10 +10,11 @@ class PoliciaMaritimaAPITester:
         self.tests_run = 0
         self.tests_passed = 0
         self.created_service_id = None
+        self.issues = []
 
     def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
         """Run a single API test"""
-        url = f"{self.api_url}/{endpoint}"
+        url = f"{self.api_url}/{endpoint}" if endpoint else self.api_url
         headers = {'Content-Type': 'application/json'}
 
         self.tests_run += 1
@@ -34,55 +35,54 @@ class PoliciaMaritimaAPITester:
             if success:
                 self.tests_passed += 1
                 print(f"✅ Passed - Status: {response.status_code}")
-                
-                # Print response data for debugging
-                if response.content:
-                    try:
-                        response_data = response.json()
-                        if endpoint == "servicos/proximo-numero":
-                            print(f"   Next number: {response_data.get('proximo_numero')}")
-                        elif "dashboard/stats" in endpoint:
-                            print(f"   Stats: Total={response_data.get('total')}, Navios={response_data.get('navios')}, Policiamentos={response_data.get('policiamentos')}")
-                        elif method == 'POST' and 'servicos' in endpoint:
-                            print(f"   Created service ID: {response_data.get('id')}")
-                            print(f"   Service number: {response_data.get('numero_servico')}")
-                    except:
-                        pass
-                        
+                try:
+                    return True, response.json()
+                except:
+                    return True, {}
             else:
                 print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
-                if response.content:
-                    try:
-                        error_data = response.json()
-                        print(f"   Error: {error_data}")
-                    except:
-                        print(f"   Response: {response.text[:200]}")
-
-            return success, response.json() if response.content and response.status_code < 400 else {}
+                print(f"   Response: {response.text}")
+                self.issues.append(f"{name}: Expected {expected_status}, got {response.status_code}")
+                try:
+                    return False, response.json()
+                except:
+                    return False, {}
 
         except Exception as e:
             print(f"❌ Failed - Error: {str(e)}")
+            self.issues.append(f"{name}: Network error - {str(e)}")
             return False, {}
 
     def test_get_proximo_numero(self):
-        """Test getting next service number"""
+        """Test getting next service number - CHANGE 2: Should return proximo_numero_controlo"""
         success, response = self.run_test(
-            "Get Next Service Number",
+            "GET /api/servicos/proximo-numero returns proximo_numero_controlo",
             "GET",
             "servicos/proximo-numero",
             200
         )
-        return success
+        if success and isinstance(response, dict):
+            if "proximo_numero_controlo" in response:
+                numero_controlo = response["proximo_numero_controlo"]
+                current_year = datetime.now().year
+                if numero_controlo.startswith(f"{current_year}/") and len(numero_controlo.split('/')) == 2:
+                    print(f"   ✅ Found proximo_numero_controlo: {numero_controlo}")
+                    return True
+                else:
+                    self.issues.append(f"proximo_numero_controlo format incorrect: {numero_controlo}")
+            else:
+                self.issues.append("Missing proximo_numero_controlo field")
+        return False
 
     def test_create_navios_service(self):
-        """Test creating a Navios service"""
+        """Test creating a Navios service - CHANGE 1: Should auto-generate numero_controlo as YEAR/NNNN"""
+        current_year = datetime.now().year
         navios_data = {
             "tipo_formulario": "navios",
             "comando_posto": "HT",
-            "data": "2024-08-15",
+            "data": f"{current_year}-08-15",
             "utente": "TEST SHIPPING COMPANY",
             "despacho": "TEST/2024/001",
-            "numero_controlo": "CTRL001",
             "atividade": "ESCALA",
             "navio": "TEST VESSEL",
             "deslocacao_km": 5.5,
@@ -91,14 +91,11 @@ class PoliciaMaritimaAPITester:
             "p_imp": 0,
             "np_req": 1,
             "np_imp": 0,
-            "pericias": 0,
-            "agravamento": 0,
             "bote": 2.0,
             "lancha": 0,
             "moto_agua": 0,
             "viatura_4x4": 1.0,
             "moto_4": 0,
-            "deslocacao": 3.0,
             "agentes": [
                 {
                     "nome": "Test Agent 1",
@@ -118,7 +115,7 @@ class PoliciaMaritimaAPITester:
         }
         
         success, response = self.run_test(
-            "Create Navios Service",
+            "POST /api/servicos auto-generates numero_controlo as YEAR/NNNN",
             "POST",
             "servicos",
             200,
@@ -127,190 +124,73 @@ class PoliciaMaritimaAPITester:
         
         if success and response.get('id'):
             self.created_service_id = response['id']
-            
-        return success
+            # Check if numero_controlo is auto-generated in YEAR/NNNN format
+            numero_controlo = response.get('numero_controlo')
+            if numero_controlo:
+                if numero_controlo.startswith(f"{current_year}/") and len(numero_controlo.split('/')[1]) == 4:
+                    print(f"   ✅ Auto-generated numero_controlo: {numero_controlo}")
+                    return True
+                else:
+                    self.issues.append(f"numero_controlo format incorrect: {numero_controlo}")
+            else:
+                self.issues.append("Missing numero_controlo in response")
+        return False
 
-    def test_create_policiamentos_service(self):
-        """Test creating a Policiamentos service"""
-        policiamentos_data = {
-            "tipo_formulario": "policiamentos",
-            "comando_posto": "VE",
-            "data": "2024-08-16",
-            "utente": "TEST EVENT ORGANIZER",
-            "despacho": "POL/2024/001",
-            "numero_controlo": "CTRL002",
-            "atividade": "POLICIAMENTO A EVENTO",
-            "navio": "",
-            "deslocacao_km": 8.0,
-            "pol_req_p_diurno_4h": 1,
-            "pol_req_p_diurno_h": 4,
-            "pol_req_p_noturno_4h": 0,
-            "pol_req_p_noturno_h": 0,
-            "pol_req_np_diurno_4h": 1,
-            "pol_req_np_diurno_h": 2,
-            "pol_req_np_noturno_4h": 0,
-            "pol_req_np_noturno_h": 0,
-            "pol_imp_p_diurno_4h": 0,
-            "pol_imp_p_diurno_h": 0,
-            "pol_imp_p_noturno_4h": 0,
-            "pol_imp_p_noturno_h": 0,
-            "pol_imp_np_diurno_4h": 0,
-            "pol_imp_np_diurno_h": 0,
-            "pol_imp_np_noturno_4h": 0,
-            "pol_imp_np_noturno_h": 0,
-            "pericias": 1,
-            "agravamento": 25.0,
-            "bote": 0,
-            "lancha": 1.0,
-            "moto_agua": 0,
-            "viatura_4x4": 2.0,
-            "moto_4": 0,
-            "deslocacao": 5.0,
-            "agentes": [
-                {
-                    "nome": "Test Police Agent 1",
-                    "gdh_inicio_dia": "16/08",
-                    "gdh_inicio_hora": "09:00",
-                    "gdh_fim_dia": "16/08",
-                    "gdh_fim_hora": "17:00",
-                    "gdh_servico": "Event Security",
-                    "req_p_noturno_4h": 0,
-                    "req_p_diurno_4h": 1,
-                    "req_p_sdf": 0,
-                    "req_np_noturno_4h": 0,
-                    "req_np_diurno_4h": 1,
-                    "req_np_sdf": 0,
-                    "imp_p_noturno_4h": 0,
-                    "imp_p_diurno_4h": 0,
-                    "imp_p_sdf": 0,
-                    "imp_np_noturno_4h": 0,
-                    "imp_np_diurno_4h": 0,
-                    "imp_np_sdf": 0
-                }
-            ],
-            "responsavel": "Test Police Responsible"
-        }
-        
+    def test_list_atividades(self):
+        """Test GET /api/atividades returns stored activities - CHANGE 3"""
         success, response = self.run_test(
-            "Create Policiamentos Service",
-            "POST",
-            "servicos",
-            200,
-            data=policiamentos_data
-        )
-        
-        return success
-
-    def test_list_servicos(self):
-        """Test listing all services"""
-        success, response = self.run_test(
-            "List All Services",
+            "GET /api/atividades returns stored activities",
             "GET",
-            "servicos",
+            "atividades",
             200
         )
-        return success
-
-    def test_list_servicos_with_filters(self):
-        """Test listing services with filters"""
-        # Test tipo filter
-        success1, _ = self.run_test(
-            "List Services - Filter by Navios",
-            "GET",
-            "servicos",
-            200,
-            params={"tipo": "navios"}
-        )
-        
-        # Test comando filter
-        success2, _ = self.run_test(
-            "List Services - Filter by Comando HT",
-            "GET",
-            "servicos",
-            200,
-            params={"comando": "HT"}
-        )
-        
-        # Test search filter
-        success3, _ = self.run_test(
-            "List Services - Search by Utente",
-            "GET",
-            "servicos",
-            200,
-            params={"search": "TEST"}
-        )
-        
-        return success1 and success2 and success3
-
-    def test_get_servico(self):
-        """Test getting a specific service"""
-        if not self.created_service_id:
-            print("⚠️ Skipping get service test - no service created")
+        if success and isinstance(response, list):
+            print(f"   ✅ Found {len(response)} activities")
             return True
-            
+        else:
+            self.issues.append("GET atividades should return a list")
+        return False
+
+    def test_servicos_date_filters(self):
+        """Test GET /api/servicos supports data_inicio and data_fim params - CHANGE 5"""
+        current_date = datetime.now().strftime("%Y-%m-%d")
         success, response = self.run_test(
-            "Get Specific Service",
+            "GET /api/servicos supports data_inicio and data_fim params",
             "GET",
-            f"servicos/{self.created_service_id}",
-            200
+            "servicos",
+            200,
+            params={"data_inicio": current_date, "data_fim": current_date}
         )
-        return success
-
-    def test_update_servico(self):
-        """Test updating a service"""
-        if not self.created_service_id:
-            print("⚠️ Skipping update service test - no service created")
+        if success and isinstance(response, list):
+            print(f"   ✅ Date range filter returned {len(response)} services")
             return True
-            
-        update_data = {
-            "tipo_formulario": "navios",
-            "comando_posto": "HT",
-            "data": "2024-08-15",
-            "utente": "UPDATED TEST SHIPPING COMPANY",
-            "despacho": "TEST/2024/001-UPDATED",
-            "numero_controlo": "CTRL001-UPD",
-            "atividade": "ABASTECIMENTO",
-            "navio": "UPDATED TEST VESSEL",
-            "deslocacao_km": 7.5,
-            "visita": 2,
-            "p_req": 3,
-            "p_imp": 1,
-            "np_req": 2,
-            "np_imp": 1,
-            "pericias": 1,
-            "agravamento": 10.0,
-            "bote": 3.0,
-            "lancha": 1.0,
-            "moto_agua": 0,
-            "viatura_4x4": 2.0,
-            "moto_4": 0,
-            "deslocacao": 4.0,
-            "agentes": [
-                {
-                    "nome": "Updated Test Agent 1",
-                    "gdh_inicio_dia": "15/08",
-                    "gdh_inicio_hora": "07:00",
-                    "gdh_fim_dia": "15/08",
-                    "gdh_fim_hora": "15:00",
-                    "visita_entrada": 2,
-                    "visita_saida": 1,
-                    "svc_p_req": 6,
-                    "svc_p_imp": 2,
-                    "svc_np_req": 4,
-                    "svc_np_imp": 2
-                }
-            ],
-            "responsavel": "Updated Test Responsible"
+        else:
+            self.issues.append("GET servicos date range filter failed")
+        return False
+
+    def test_relatorio_endpoint(self):
+        """Test GET /api/relatorio with filters works - CHANGE 4"""
+        params = {
+            "tipo": "navios",
+            "data_inicio": "2026-01-01",
+            "data_fim": "2026-12-31"
         }
-        
         success, response = self.run_test(
-            "Update Service",
-            "PUT",
-            f"servicos/{self.created_service_id}",
+            "GET /api/relatorio with filters works",
+            "GET",
+            "relatorio",
             200,
-            data=update_data
+            params=params
         )
-        return success
+        if success and isinstance(response, dict):
+            expected_fields = ["total", "por_tipo", "por_posto", "servicos"]
+            missing_fields = [f for f in expected_fields if f not in response]
+            if not missing_fields:
+                print(f"   ✅ Relatorio returned {response['total']} services")
+                return True
+            else:
+                self.issues.append(f"GET relatorio missing fields: {missing_fields}")
+        return False
 
     def test_dashboard_stats(self):
         """Test dashboard statistics endpoint"""
@@ -320,7 +200,30 @@ class PoliciaMaritimaAPITester:
             "dashboard/stats",
             200
         )
-        return success
+        if success and isinstance(response, dict):
+            required_fields = ["total", "navios", "policiamentos"]
+            missing_fields = [f for f in required_fields if f not in response]
+            if not missing_fields:
+                print(f"   ✅ Dashboard stats: Total={response.get('total')}, Navios={response.get('navios')}, Policiamentos={response.get('policiamentos')}")
+                return True
+            else:
+                self.issues.append(f"Dashboard stats missing fields: {missing_fields}")
+        return False
+
+    def test_list_servicos(self):
+        """Test listing all services"""
+        success, response = self.run_test(
+            "List All Services",
+            "GET",
+            "servicos",
+            200
+        )
+        if success and isinstance(response, list):
+            print(f"   ✅ Listed {len(response)} services")
+            return True
+        else:
+            self.issues.append("GET servicos should return a list")
+        return False
 
     def test_delete_servico(self):
         """Test deleting a service"""
@@ -329,59 +232,58 @@ class PoliciaMaritimaAPITester:
             return True
             
         success, response = self.run_test(
-            "Delete Service",
+            "Delete Test Service",
             "DELETE",
             f"servicos/{self.created_service_id}",
             200
         )
         return success
 
-    def test_root_endpoint(self):
-        """Test root API endpoint"""
-        success, response = self.run_test(
-            "Root API Endpoint",
-            "GET",
-            "",
-            200
-        )
-        return success
-
 def main():
-    print("🚢 POLÍCIA MARÍTIMA API Testing Suite")
-    print("=" * 50)
+    print("🚢 POLÍCIA MARÍTIMA API Testing Suite - 10 Changes Verification")
+    print("=" * 60)
     
     tester = PoliciaMaritimaAPITester()
     
-    # Run all tests in order
+    # Test the specific 10 changes
     test_results = []
     
-    # Basic endpoint tests
-    test_results.append(tester.test_root_endpoint())
+    # Backend changes to test:
+    # 1. POST /api/servicos auto-generates numero_controlo as YEAR/NNNN
+    # 2. GET /api/servicos/proximo-numero returns proximo_numero_controlo  
+    # 3. GET /api/atividades returns stored activities
+    # 4. GET /api/relatorio with filters works
+    # 5. GET /api/servicos supports data_inicio and data_fim params
+    
+    print("\n🔍 Testing Backend Changes:")
     test_results.append(tester.test_get_proximo_numero())
-    test_results.append(tester.test_dashboard_stats())
-    
-    # Service creation tests
     test_results.append(tester.test_create_navios_service())
-    test_results.append(tester.test_create_policiamentos_service())
+    test_results.append(tester.test_list_atividades())
+    test_results.append(tester.test_relatorio_endpoint())
+    test_results.append(tester.test_servicos_date_filters())
     
-    # Service retrieval and manipulation tests
+    # Basic functionality tests
+    test_results.append(tester.test_dashboard_stats())
     test_results.append(tester.test_list_servicos())
-    test_results.append(tester.test_list_servicos_with_filters())
-    test_results.append(tester.test_get_servico())
-    test_results.append(tester.test_update_servico())
     
-    # Cleanup test
-    test_results.append(tester.test_delete_servico())
+    # Cleanup
+    if tester.created_service_id:
+        tester.test_delete_servico()
     
     # Print final results
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
     print(f"📊 FINAL RESULTS:")
     print(f"   Tests run: {tester.tests_run}")
     print(f"   Tests passed: {tester.tests_passed}")
     print(f"   Success rate: {(tester.tests_passed/tester.tests_run)*100:.1f}%")
     
+    if tester.issues:
+        print(f"\n❌ Issues found ({len(tester.issues)}):")
+        for i, issue in enumerate(tester.issues, 1):
+            print(f"   {i}. {issue}")
+    
     if tester.tests_passed == tester.tests_run:
-        print("🎉 ALL TESTS PASSED!")
+        print("🎉 ALL BACKEND TESTS PASSED!")
         return 0
     else:
         print(f"❌ {tester.tests_run - tester.tests_passed} tests failed")

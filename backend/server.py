@@ -50,22 +50,19 @@ class AgenteModel(BaseModel):
     imp_np_sdf: int = 0
 
 class ServicoCreate(BaseModel):
-    tipo_formulario: str  # "navios" or "policiamentos"
+    tipo_formulario: str
     comando_posto: str = ""
     data: str = ""
     utente: str = ""
     despacho: str = ""
-    numero_controlo: str = ""
     atividade: str = ""
     navio: str = ""
     deslocacao_km: float = 0
-    # Escala de Navios
     visita: int = 0
     p_req: int = 0
     p_imp: int = 0
     np_req: int = 0
     np_imp: int = 0
-    # Policiamento Requisitado
     pol_req_p_diurno_4h: int = 0
     pol_req_p_diurno_h: int = 0
     pol_req_p_noturno_4h: int = 0
@@ -74,7 +71,6 @@ class ServicoCreate(BaseModel):
     pol_req_np_diurno_h: int = 0
     pol_req_np_noturno_4h: int = 0
     pol_req_np_noturno_h: int = 0
-    # Policiamento Imposto
     pol_imp_p_diurno_4h: int = 0
     pol_imp_p_diurno_h: int = 0
     pol_imp_p_noturno_4h: int = 0
@@ -83,31 +79,24 @@ class ServicoCreate(BaseModel):
     pol_imp_np_diurno_h: int = 0
     pol_imp_np_noturno_4h: int = 0
     pol_imp_np_noturno_h: int = 0
-    # Extras
-    pericias: int = 0
-    agravamento: float = 0
-    # Empenhamento
     bote: float = 0
     lancha: float = 0
     moto_agua: float = 0
     viatura_4x4: float = 0
     moto_4: float = 0
-    deslocacao: float = 0
-    # Agents
     agentes: List[AgenteModel] = []
-    # Meta
     responsavel: str = ""
 
 class ServicoResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str
     numero_servico: int
+    numero_controlo: str = ""
     tipo_formulario: str
     comando_posto: str = ""
     data: str = ""
     utente: str = ""
     despacho: str = ""
-    numero_controlo: str = ""
     atividade: str = ""
     navio: str = ""
     deslocacao_km: float = 0
@@ -132,18 +121,33 @@ class ServicoResponse(BaseModel):
     pol_imp_np_diurno_h: int = 0
     pol_imp_np_noturno_4h: int = 0
     pol_imp_np_noturno_h: int = 0
-    pericias: int = 0
-    agravamento: float = 0
     bote: float = 0
     lancha: float = 0
     moto_agua: float = 0
     viatura_4x4: float = 0
     moto_4: float = 0
-    deslocacao: float = 0
     agentes: List[AgenteModel] = []
     responsavel: str = ""
     created_at: str = ""
     updated_at: str = ""
+
+# --- Helper: generate annual numero_controlo ---
+async def generate_numero_controlo(year: int) -> str:
+    # Find the highest numero_controlo for this year
+    regex = f"^{year}/"
+    last = await db.servicos.find_one(
+        {"numero_controlo": {"$regex": regex}},
+        {"_id": 0, "numero_controlo": 1},
+        sort=[("numero_controlo", -1)]
+    )
+    if last and last.get("numero_controlo"):
+        try:
+            seq = int(last["numero_controlo"].split("/")[1]) + 1
+        except (IndexError, ValueError):
+            seq = 1
+    else:
+        seq = 1
+    return f"{year}/{seq:04d}"
 
 # --- Endpoints ---
 
@@ -155,22 +159,39 @@ async def root():
 async def get_proximo_numero():
     last = await db.servicos.find_one(sort=[("numero_servico", -1)], projection={"_id": 0, "numero_servico": 1})
     next_num = (last["numero_servico"] + 1) if last else 1
-    return {"proximo_numero": next_num}
+    year = datetime.now(timezone.utc).year
+    nc = await generate_numero_controlo(year)
+    return {"proximo_numero": next_num, "proximo_numero_controlo": nc}
 
 @api_router.post("/servicos", response_model=ServicoResponse)
 async def create_servico(input_data: ServicoCreate):
     last = await db.servicos.find_one(sort=[("numero_servico", -1)], projection={"_id": 0, "numero_servico": 1})
     next_num = (last["numero_servico"] + 1) if last else 1
-    
+
+    # Determine year from service date or current
+    year = datetime.now(timezone.utc).year
+    if input_data.data:
+        try:
+            year = int(input_data.data[:4])
+        except (ValueError, IndexError):
+            pass
+    nc = await generate_numero_controlo(year)
+
     now = datetime.now(timezone.utc).isoformat()
     doc = input_data.model_dump()
     doc["id"] = str(uuid.uuid4())
     doc["numero_servico"] = next_num
+    doc["numero_controlo"] = nc
     doc["created_at"] = now
     doc["updated_at"] = now
-    
+
+    # Save atividade to the atividades collection if new
+    if input_data.atividade:
+        existing_at = await db.atividades.find_one({"nome": input_data.atividade, "tipo": input_data.tipo_formulario})
+        if not existing_at:
+            await db.atividades.insert_one({"nome": input_data.atividade, "tipo": input_data.tipo_formulario})
+
     await db.servicos.insert_one(doc)
-    # Remove MongoDB _id before returning
     doc.pop("_id", None)
     return ServicoResponse(**doc)
 
@@ -181,6 +202,8 @@ async def list_servicos(
     mes: Optional[int] = Query(None),
     ano: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    data_inicio: Optional[str] = Query(None),
+    data_fim: Optional[str] = Query(None),
 ):
     query = {}
     if tipo:
@@ -188,13 +211,22 @@ async def list_servicos(
     if comando:
         query["comando_posto"] = comando
     if search:
-        query["utente"] = {"$regex": search, "$options": "i"}
+        query["$or"] = [
+            {"utente": {"$regex": search, "$options": "i"}},
+            {"navio": {"$regex": search, "$options": "i"}},
+            {"numero_controlo": {"$regex": search, "$options": "i"}},
+        ]
     if mes and ano:
-        # Filter by month/year from the data field (ISO format YYYY-MM-DD)
         month_str = f"{ano}-{mes:02d}"
         query["data"] = {"$regex": f"^{month_str}"}
-    
-    docs = await db.servicos.find(query, {"_id": 0}).sort("numero_servico", -1).to_list(1000)
+    elif data_inicio and data_fim:
+        query["data"] = {"$gte": data_inicio, "$lte": data_fim}
+    elif data_inicio:
+        query["data"] = {"$gte": data_inicio}
+    elif data_fim:
+        query["data"] = {"$lte": data_fim}
+
+    docs = await db.servicos.find(query, {"_id": 0}).sort("numero_servico", -1).to_list(5000)
     return [ServicoResponse(**d) for d in docs]
 
 @api_router.get("/servicos/{servico_id}", response_model=ServicoResponse)
@@ -209,16 +241,18 @@ async def update_servico(servico_id: str, input_data: ServicoCreate):
     existing = await db.servicos.find_one({"id": servico_id}, {"_id": 0})
     if not existing:
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
-    
+
     now = datetime.now(timezone.utc).isoformat()
     update_data = input_data.model_dump()
     update_data["updated_at"] = now
-    
-    await db.servicos.update_one(
-        {"id": servico_id},
-        {"$set": update_data}
-    )
-    
+
+    # Save new atividade if needed
+    if input_data.atividade:
+        existing_at = await db.atividades.find_one({"nome": input_data.atividade, "tipo": input_data.tipo_formulario})
+        if not existing_at:
+            await db.atividades.insert_one({"nome": input_data.atividade, "tipo": input_data.tipo_formulario})
+
+    await db.servicos.update_one({"id": servico_id}, {"$set": update_data})
     updated = await db.servicos.find_one({"id": servico_id}, {"_id": 0})
     return ServicoResponse(**updated)
 
@@ -229,13 +263,31 @@ async def delete_servico(servico_id: str):
         raise HTTPException(status_code=404, detail="Serviço não encontrado")
     return {"message": "Serviço eliminado com sucesso"}
 
+# --- Atividades ---
+
+@api_router.get("/atividades")
+async def list_atividades(tipo: Optional[str] = Query(None)):
+    query = {}
+    if tipo:
+        query["tipo"] = tipo
+    docs = await db.atividades.find(query, {"_id": 0}).to_list(500)
+    return [d["nome"] for d in docs]
+
+@api_router.post("/atividades")
+async def create_atividade(nome: str = Query(...), tipo: str = Query(...)):
+    existing = await db.atividades.find_one({"nome": nome, "tipo": tipo})
+    if not existing:
+        await db.atividades.insert_one({"nome": nome, "tipo": tipo})
+    return {"message": "ok"}
+
+# --- Dashboard ---
+
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats():
     total = await db.servicos.count_documents({})
     navios = await db.servicos.count_documents({"tipo_formulario": "navios"})
     policiamentos = await db.servicos.count_documents({"tipo_formulario": "policiamentos"})
-    
-    # Count by command post
+
     pipeline = [
         {"$group": {"_id": "$comando_posto", "count": {"$sum": 1}}},
         {"$sort": {"_id": 1}}
@@ -244,21 +296,70 @@ async def get_dashboard_stats():
     async for doc in db.servicos.aggregate(pipeline):
         if doc["_id"]:
             by_posto[doc["_id"]] = doc["count"]
-    
-    # Monthly counts for current year
+
     now = datetime.now(timezone.utc)
     monthly = []
     for m in range(1, 13):
         month_str = f"{now.year}-{m:02d}"
         count = await db.servicos.count_documents({"data": {"$regex": f"^{month_str}"}})
         monthly.append({"mes": m, "count": count})
-    
+
     return {
         "total": total,
         "navios": navios,
         "policiamentos": policiamentos,
         "por_posto": by_posto,
         "mensal": monthly
+    }
+
+# --- Relatorio ---
+
+@api_router.get("/relatorio")
+async def get_relatorio(
+    tipo: Optional[str] = Query(None),
+    comando: Optional[str] = Query(None),
+    data_inicio: Optional[str] = Query(None),
+    data_fim: Optional[str] = Query(None),
+    atividade: Optional[str] = Query(None),
+    utente: Optional[str] = Query(None),
+):
+    query = {}
+    if tipo:
+        query["tipo_formulario"] = tipo
+    if comando:
+        query["comando_posto"] = comando
+    if atividade:
+        query["atividade"] = {"$regex": atividade, "$options": "i"}
+    if utente:
+        query["utente"] = {"$regex": utente, "$options": "i"}
+    if data_inicio and data_fim:
+        query["data"] = {"$gte": data_inicio, "$lte": data_fim}
+    elif data_inicio:
+        query["data"] = {"$gte": data_inicio}
+    elif data_fim:
+        query["data"] = {"$lte": data_fim}
+
+    docs = await db.servicos.find(query, {"_id": 0}).sort("data", 1).to_list(5000)
+    results = [ServicoResponse(**d) for d in docs]
+
+    # Summary stats
+    total = len(results)
+    by_tipo = {}
+    by_posto = {}
+    by_atividade = {}
+    for r in results:
+        by_tipo[r.tipo_formulario] = by_tipo.get(r.tipo_formulario, 0) + 1
+        if r.comando_posto:
+            by_posto[r.comando_posto] = by_posto.get(r.comando_posto, 0) + 1
+        if r.atividade:
+            by_atividade[r.atividade] = by_atividade.get(r.atividade, 0) + 1
+
+    return {
+        "total": total,
+        "por_tipo": by_tipo,
+        "por_posto": by_posto,
+        "por_atividade": by_atividade,
+        "servicos": [r.model_dump() for r in results],
     }
 
 app.include_router(api_router)

@@ -2,23 +2,24 @@ import React from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
-import { Anchor, LayoutDashboard, Table2, Ship, Shield, Menu, X } from "lucide-react";
+import { Anchor, LayoutDashboard, Table2, Ship, Shield, Menu, X, FileBarChart } from "lucide-react";
 import { useState } from "react";
 import Dashboard from "@/pages/Dashboard";
 import ServicosTable from "@/pages/ServicosTable";
 import NaviosForm from "@/pages/NaviosForm";
 import PoliciamentosForm from "@/pages/PoliciamentosForm";
+import Relatorio from "@/pages/Relatorio";
 
 const navItems = [
   { path: "/", label: "Painel", icon: LayoutDashboard },
-  { path: "/servicos", label: "Serviços", icon: Table2 },
+  { path: "/servicos", label: "Servicos", icon: Table2 },
   { path: "/navios/novo", label: "Navios", icon: Ship },
   { path: "/policiamentos/novo", label: "Policiamentos", icon: Shield },
+  { path: "/relatorio", label: "Relatorio", icon: FileBarChart },
 ];
 
 function Sidebar({ mobileOpen, setMobileOpen }) {
   const location = useLocation();
-
   const isActive = (path) => {
     if (path === "/") return location.pathname === "/";
     return location.pathname.startsWith(path.replace("/novo", ""));
@@ -27,15 +28,10 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
   return (
     <>
       {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => setMobileOpen(false)} />
       )}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-60 flex flex-col transition-transform duration-300 md:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 left-0 z-50 h-full w-60 flex flex-col transition-transform duration-300 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         style={{ backgroundColor: "#002D72" }}
         data-testid="sidebar"
       >
@@ -66,7 +62,7 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
 
         <div className="px-5 py-4 border-t border-white/10">
           <p className="text-white/40 text-xs">Portaria 506/2018</p>
-          <p className="text-white/30 text-xs mt-0.5">v1.0</p>
+          <p className="text-white/30 text-xs mt-0.5">v1.1</p>
         </div>
       </aside>
     </>
@@ -75,28 +71,19 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
 
 function Layout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-
   return (
     <div className="min-h-screen bg-background">
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-
       <div className="md:ml-60">
         <header className="sticky top-0 z-30 h-14 flex items-center px-4 md:px-8 bg-white/80 backdrop-blur-md border-b border-slate-200 md:hidden">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="p-2 rounded-sm hover:bg-slate-100"
-            data-testid="mobile-menu-btn"
-          >
+          <button onClick={() => setMobileOpen(true)} className="p-2 rounded-sm hover:bg-slate-100" data-testid="mobile-menu-btn">
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
           <span className="ml-3 font-bold text-sm tracking-wide" style={{ fontFamily: "Barlow, sans-serif", color: "#002D72" }}>
             POLICIA MARITIMA
           </span>
         </header>
-
-        <main className="p-4 md:p-8 lg:p-10">
-          {children}
-        </main>
+        <main className="p-4 md:p-8 lg:p-10">{children}</main>
       </div>
     </div>
   );
@@ -113,6 +100,7 @@ function App() {
           <Route path="/navios/editar/:id" element={<NaviosForm />} />
           <Route path="/policiamentos/novo" element={<PoliciamentosForm />} />
           <Route path="/policiamentos/editar/:id" element={<PoliciamentosForm />} />
+          <Route path="/relatorio" element={<Relatorio />} />
         </Routes>
       </Layout>
       <Toaster position="top-right" />

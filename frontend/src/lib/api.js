@@ -11,7 +11,13 @@ export const api = {
   getServico: (id) => axios.get(`${API}/servicos/${id}`).then(r => r.data),
   updateServico: (id, data) => axios.put(`${API}/servicos/${id}`, data).then(r => r.data),
   deleteServico: (id) => axios.delete(`${API}/servicos/${id}`).then(r => r.data),
-  
+
   // Dashboard
   getDashboardStats: () => axios.get(`${API}/dashboard/stats`).then(r => r.data),
+
+  // Atividades
+  listAtividades: (tipo) => axios.get(`${API}/atividades`, { params: { tipo } }).then(r => r.data),
+
+  // Relatorio
+  getRelatorio: (params) => axios.get(`${API}/relatorio`, { params }).then(r => r.data),
 };
