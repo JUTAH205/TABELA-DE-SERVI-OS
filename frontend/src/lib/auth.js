@@ -23,7 +23,10 @@ export function AuthProvider({ children }) {
     localStorage.setItem("pm_token", data.token);
     localStorage.setItem("pm_user", JSON.stringify(data));
     setUser(data);
-    return data;
+    // Small delay to ensure state propagation
+    return new Promise((resolve) => {
+      setTimeout(() => resolve(data), 100);
+    });
   };
 
   const logout = () => {
