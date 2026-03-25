@@ -68,10 +68,10 @@ export default function ServicosTable() {
           <p className="text-sm text-muted-foreground mt-1">{servicos.length} servico(s) registado(s)</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => navigate("/navios/novo")} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-sm text-xs font-semibold uppercase tracking-wide" data-testid="new-navios-btn">
+          <Button onClick={() => navigate("/servicos/navios/novo")} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-sm text-xs font-semibold uppercase tracking-wide" data-testid="new-navios-btn">
             <Ship className="h-4 w-4 mr-1.5" strokeWidth={1.5} /> Novo Navios
           </Button>
-          <Button onClick={() => navigate("/policiamentos/novo")} className="rounded-sm text-xs font-semibold uppercase tracking-wide" style={{ backgroundColor: "#DA291C", color: "white" }} data-testid="new-policiamentos-btn">
+          <Button onClick={() => navigate("/servicos/policiamentos/novo")} className="rounded-sm text-xs font-semibold uppercase tracking-wide" style={{ backgroundColor: "#DA291C", color: "white" }} data-testid="new-policiamentos-btn">
             <Shield className="h-4 w-4 mr-1.5" strokeWidth={1.5} /> Novo Policiamento
           </Button>
         </div>
@@ -163,7 +163,7 @@ export default function ServicosTable() {
                       <td className="font-mono">{s.deslocacao_km || 0}</td>
                       <td>
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => navigate(`/${s.tipo_formulario}/editar/${s.id}`)} className="p-1.5 rounded-sm hover:bg-slate-100 transition-colors" title="Editar" data-testid={`edit-btn-${s.numero_servico}`}>
+                          <button onClick={() => navigate(`/servicos/${s.tipo_formulario === "navios" ? "navios" : "policiamentos"}/editar/${s.id}`)} className="p-1.5 rounded-sm hover:bg-slate-100 transition-colors" title="Editar" data-testid={`edit-btn-${s.numero_servico}`}>
                             <Pencil className="h-3.5 w-3.5 text-slate-500" strokeWidth={1.5} />
                           </button>
                           <button onClick={() => handleDownloadPDF(s)} className="p-1.5 rounded-sm hover:bg-blue-50 transition-colors" title="Descarregar PDF" data-testid={`pdf-btn-${s.numero_servico}`}>

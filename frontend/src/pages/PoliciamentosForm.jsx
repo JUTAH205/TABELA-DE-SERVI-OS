@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Save, Plus, Trash2, ArrowLeft } from "lucide-react";
 import { UpperInput, DateInput, TimeInput } from "@/components/FormInputs";
 import AtividadeCombobox from "@/components/AtividadeCombobox";
+import { useAuth } from "@/lib/auth";
 
 const emptyAgente = () => ({
   nome: "", gdh_inicio_dia: "", gdh_inicio_hora: "", gdh_fim_dia: "", gdh_fim_hora: "",
@@ -23,10 +24,12 @@ const emptyAgente = () => ({
 export default function PoliciamentosForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isEditing = !!id;
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [nextInfo, setNextInfo] = useState({});
+  const [kpi, setKpi] = useState({ navios: 0, policiamentos: 0 });
 
   const [form, setForm] = useState({
     tipo_formulario: "policiamentos",
@@ -45,18 +48,19 @@ export default function PoliciamentosForm() {
     pol_imp_p_noturno_4h: 0, pol_imp_p_noturno_h: 0,
     pol_imp_np_diurno_4h: 0, pol_imp_np_diurno_h: 0,
     pol_imp_np_noturno_4h: 0, pol_imp_np_noturno_h: 0,
-    bote: 0, lancha: 0, moto_agua: 0, viatura_4x4: 0, moto_4: 0,
+    bote: 0, lancha: 0, moto_agua: 0, viatura_4x4: 0, moto_4: 0, viatura_ligeira: 0,
     agentes: [emptyAgente()],
     responsavel: "",
   });
 
   useEffect(() => {
+    api.getServicosKPI().then(setKpi).catch(() => {});
     if (isEditing) {
       setLoading(true);
       api.getServico(id).then(data => {
         setForm({ ...data, tipo_formulario: "policiamentos" });
         setLoading(false);
-      }).catch(() => { toast.error("Servico nao encontrado"); navigate("/servicos"); });
+      }).catch(() => { toast.error("Servico nao encontrado"); navigate("/servicos/mapa"); });
     } else {
       api.getProximoNumero().then(setNextInfo).catch(() => {});
     }
@@ -84,7 +88,7 @@ export default function PoliciamentosForm() {
         await api.createServico(form);
         toast.success("Servico criado com sucesso");
       }
-      navigate("/servicos");
+      navigate("/servicos/mapa");
     } catch { toast.error("Erro ao gravar servico"); } finally { setSaving(false); }
   };
 
@@ -96,13 +100,23 @@ export default function PoliciamentosForm() {
         <button onClick={() => navigate(-1)} className="p-2 rounded-sm hover:bg-slate-100" data-testid="back-btn">
           <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight uppercase" style={{ fontFamily: "Barlow, sans-serif", color: "#002D72" }}>
             {isEditing ? "Editar Servico - Policiamentos" : "Novo Servico - Servicos de Policia"}
           </h1>
           <p className="text-sm text-muted-foreground">
             {isEditing ? `N. Controlo: ${form.numero_controlo}` : `Proximo N. Controlo: ${nextInfo?.proximo_numero_controlo || "..."}`}
           </p>
+        </div>
+        <div className="hidden sm:flex gap-2">
+          <div className="text-center px-3 py-1.5 bg-blue-50 rounded-sm border border-blue-200">
+            <p className="text-xs text-blue-600 font-semibold" style={{ fontFamily: "Barlow, sans-serif" }}>NAVIOS</p>
+            <p className="text-lg font-bold text-blue-800">{kpi.navios}</p>
+          </div>
+          <div className="text-center px-3 py-1.5 bg-red-50 rounded-sm border border-red-200">
+            <p className="text-xs text-red-600 font-semibold" style={{ fontFamily: "Barlow, sans-serif" }}>POLIC.</p>
+            <p className="text-lg font-bold text-red-800">{kpi.policiamentos}</p>
+          </div>
         </div>
       </div>
 
@@ -282,7 +296,7 @@ export default function PoliciamentosForm() {
         <div className="form-section-title">Empenhamento Pessoal e Meios</div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {[
-            { field: "bote", label: "Bote" },
+            { field: "viatura_ligeira", label: "Viatura Ligeira" },
             { field: "lancha", label: "Lancha" },
             { field: "moto_agua", label: "Moto Agua" },
             { field: "viatura_4x4", label: "Viatura 4x4" },
@@ -309,7 +323,7 @@ export default function PoliciamentosForm() {
 
       {/* Actions */}
       <div className="flex items-center justify-between py-4 border-t border-slate-200">
-        <Button variant="outline" onClick={() => navigate("/servicos")} className="rounded-sm" data-testid="cancel-btn">Cancelar</Button>
+        <Button variant="outline" onClick={() => navigate("/servicos/mapa")} className="rounded-sm" data-testid="cancel-btn">Cancelar</Button>
         <Button onClick={handleSave} disabled={saving} className="rounded-sm text-xs font-semibold uppercase tracking-wide" style={{ backgroundColor: "#DA291C", color: "white" }} data-testid="save-btn">
           <Save className="h-4 w-4 mr-1.5" strokeWidth={1.5} />
           {saving ? "A gravar..." : isEditing ? "Atualizar" : "Gravar"}

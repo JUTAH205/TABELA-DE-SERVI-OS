@@ -11,11 +11,17 @@ class PoliciaMaritimaAPITester:
         self.tests_passed = 0
         self.created_service_id = None
         self.issues = []
+        self.token = None
+        self.user_data = None
 
     def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
         """Run a single API test"""
         url = f"{self.api_url}/{endpoint}" if endpoint else self.api_url
         headers = {'Content-Type': 'application/json'}
+        
+        # Add authentication token if available
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
 
         self.tests_run += 1
         print(f"\n🔍 Testing {name}...")
@@ -23,13 +29,13 @@ class PoliciaMaritimaAPITester:
         
         try:
             if method == 'GET':
-                response = requests.get(url, headers=headers, params=params)
+                response = requests.get(url, headers=headers, params=params, timeout=10)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers)
+                response = requests.post(url, json=data, headers=headers, timeout=10)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=headers)
+                response = requests.put(url, json=data, headers=headers, timeout=10)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=headers)
+                response = requests.delete(url, headers=headers, timeout=10)
 
             success = response.status_code == expected_status
             if success:
@@ -47,6 +53,10 @@ class PoliciaMaritimaAPITester:
                     return False, response.json()
                 except:
                     return False, {}
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Failed - Request error: {str(e)}")
+            self.issues.append(f"{name}: Request error - {str(e)}")
+            return False, {}
 
         except Exception as e:
             print(f"❌ Failed - Error: {str(e)}")
