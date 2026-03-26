@@ -1,43 +1,52 @@
-# Polícia Marítima - Plataforma de Gestão v2.0
+# Polícia Marítima - Sistema de Gestão Digital
 
 ## Problema Original
-Plataforma de gestão para a Capitania do Porto da Horta com módulos de Serviços (Navios/Policiamento) e Fiscalização baseado na "Ficha de Fiscalização Única".
+Digitalizar o sistema de gestão da Polícia Marítima (Açores) actualmente em Excel e PDFs editáveis. Dois módulos: "Serviços" (Navios e Policiamentos) e "Fiscalização" (Ficha de Fiscalização Única com 9 tipos de atividade e 7 tabs).
+
+## Utilizadores
+- 3 postos: HORTA, PICO, VELAS (dados isolados por posto)
+- 1 perfil ADMIN (visão agregada de todos os postos)
 
 ## Arquitectura
-- **Frontend**: React + Tailwind + Shadcn UI + jsPDF
-- **Backend**: FastAPI + Motor (async MongoDB) + JWT Auth
-- **Base de Dados**: MongoDB (coleções: servicos, fiscalizacoes, atividades)
+- **Backend**: FastAPI + MongoDB
+- **Frontend**: React + Shadcn UI + TailwindCSS
+- **Auth**: JWT com isolamento por posto
+- **PDF**: jsPDF (client-side)
 
-## User Personas
-- PM Horta (login HORTA/HORTA123) - unidade HT
-- PM Pico (login PICO/PICO123) - unidade SR
-- PM Velas (login VELAS/VELAS123) - unidade VE
-- Admin (login ADMIN/ADMIN123) - visão global
+## Funcionalidades Implementadas
+- [x] CRUD Serviços (Navios / Policiamentos) com mapeamento Excel
+- [x] Geração PDF para Serviços
+- [x] Autenticação com 4 perfis (HORTA, PICO, VELAS, ADMIN)
+- [x] Módulo Fiscalização com interface 7-tabs e 9 tipos de atividade
+- [x] Captura GPS automática e sticky headers
+- [x] Componentes de input customizados: DateInput (DD/MM/AAAA), TimeInput (HH:MM), NIFInput (9 dígitos), GPSInput (38º31.561'N), UpperInput
+- [x] Checkbox para ligar Proprietário=Timoneiro e Operador=Proprietário
+- [x] Nomenclatura corrigida: "NR ID" em vez de "N. CC"
+- [x] GPS inline formatting (sem overlay font-mono, sem parêntesis) — corrigido 26/03/2026
 
-## Implementado (Fev 2026)
-- [x] Sistema de login com 4 perfis (HT, SR, VE, ADMIN)
-- [x] Isolamento de dados por unidade (atividades)
-- [x] Menu SERVIÇOS: Navios, Policiamentos, Mapa, Relatórios
-- [x] Menu FISCALIZAÇÃO: Novo Registo (8 tipos), Mapa, Consulta
-- [x] Formulário de Fiscalização com 7 tabs
-- [x] Numeração sequencial anual por tipo (PE-001/2026)
-- [x] GPS auto-captura + edição manual
-- [x] Cabeçalho sticky (N., Data, Hora, GPS, Local, Status)
-- [x] KPIs nos formulários de serviço
-- [x] VIATURA LIGEIRA (substituiu BOTE)
-- [x] Filtros NAVIO/UTENTE nos relatórios
-- [x] N. Controlo auto-gerado (anual, sequencial)
-- [x] Campos em maiúsculas, DD/MM e HH:MM formatados
-- [x] SR = São Roque do Pico
-- [x] Atividades customizáveis (combobox)
-- [x] Deslocação no fim do formulário
-- [x] Secção Extras removida
-- [x] Pesquisa por data na tabela de serviços
+## Tarefas Pendentes
 
-## Backlog Prioritário
-- P0: Debug/corrigir geração PDF de fiscalizações (replicar layout DOCX)
-- P0: Checkbox "mesmo proprietário" auto-preenche dados proprietário
-- P1: PDF individual por tipo de fiscalização (Pesca Lúdica, Profissional, etc.)
-- P1: Importação dados do Excel existente
-- P2: Cálculo automático valores Portaria 506/2018
-- P2: Histórico de alterações
+### P1
+- Aplicar as 6 regras globais (Date, NIF, GPS, nomenclatura) a NaviosForm.jsx e PoliciamentosForm.jsx
+- Validar vista global ADMIN no frontend (backend já isolado)
+
+### P2
+- Investigar/corrigir problemas intermitentes de login no frontend
+- Verificar e aperfeiçoar geração PDF para as 9 Fichas de Fiscalização
+
+### Futuro
+- Sistema de notificações para documentos/licenças a expirar em 30 dias
+- Refactoring: dividir FiscalizacaoNovo.jsx em sub-componentes por tab
+
+## Credenciais de Teste
+- HORTA / HORTA123
+- PICO / PICO123
+- VELAS / VELAS123
+- ADMIN / ADMIN123
+
+## APIs Principais
+- POST /api/auth/login
+- GET /api/auth/me
+- GET /api/kpis
+- GET/POST /api/servicos
+- GET/POST /api/fiscalizacoes
