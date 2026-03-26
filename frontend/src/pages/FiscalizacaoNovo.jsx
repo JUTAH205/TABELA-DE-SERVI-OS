@@ -30,7 +30,9 @@ const TABS_CONFIG = {
 };
 
 const TAB_LABELS = { identificacao: "Identificacao", embarcacao: "Embarcacao/Motor", documentos: "Documentos", palamenta: "Palamenta/Seguranca", atividade: "Atividade/Capturas", observacoes: "Observacoes", apoio: "Apoio" };
-const TAB_LABELS_PESCA_LUDICA = { ...TAB_LABELS, atividade: "Licenca/Capturas" };
+const TAB_LABELS_LICENCA = { ...TAB_LABELS, atividade: "Licenca/Capturas" };
+
+const MEIOS_COM_VALIDADE = ["f_mao", "paraq", "fumig", "extintor", "jangada"];
 
 const DOC_FIELDS = ["titulo_prop", "c_arqueacao", "c_lotacao_seguranca", "seguro", "c_nav_vistoria", "rol_tripulacao", "c_agulhas", "cedulas_marit", "l_estacao", "cert_insp_balsas", "diario_pesca"];
 const DOC_LABELS = {"titulo_prop":"Titulo Prop.", "c_arqueacao":"C. Arqueacao", "c_lotacao_seguranca":"C. Lotacao Seg.", "seguro":"Seguro", "c_nav_vistoria":"C. Nav/Vistoria", "rol_tripulacao":"Rol Tripulacao", "c_agulhas":"C. Agulhas", "cedulas_marit":"Cedulas Marit.", "l_estacao":"L. Estacao", "cert_insp_balsas":"Cert. Insp. Balsas", "diario_pesca":"Diario Pesca"};
@@ -147,6 +149,19 @@ export default function FiscalizacaoNovo() {
         return;
       }
     }
+    // Validation for Pesca Profissional required fields
+    if (selectedTipo === "pesca_profissional") {
+      const missing = [];
+      if (!form.timoneiro_nome?.trim()) missing.push("Nome Mestre/Arrais");
+      if (!form.timoneiro_carta?.trim()) missing.push("Carta / I.M.");
+      if (!form.embarcacao_nome?.trim()) missing.push("Nome Embarcacao");
+      if (!form.embarcacao_con_id?.trim()) missing.push("C.I.");
+      if (missing.length > 0) {
+        toast.error(`Campos obrigatorios em falta: ${missing.join(", ")}`);
+        setSaving(false);
+        return;
+      }
+    }
     setSaving(true);
     try {
       if (isEditing) { await api.updateFisc(id, form); toast.success("Registo atualizado"); }
@@ -174,9 +189,11 @@ export default function FiscalizacaoNovo() {
 
   const tabs = TABS_CONFIG[selectedTipo] || ["identificacao", "observacoes"];
   const isPescaLudica = selectedTipo === "pesca_ludica";
+  const isPescaProf = selectedTipo === "pesca_profissional";
   const hasPropSection = !["operador_mt", "pesca_ludica"].includes(selectedTipo);
   const hasOperadorSection = ["maritimo_turistica", "operador_mt", "tl_reb_auxl"].includes(selectedTipo);
-  const currentTabLabels = isPescaLudica ? TAB_LABELS_PESCA_LUDICA : TAB_LABELS;
+  const currentTabLabels = (isPescaLudica || isPescaProf) ? TAB_LABELS_LICENCA : TAB_LABELS;
+  const showRequiredMestre = isPescaProf;
 
   return (
     <div data-testid="fisc-form-page" className="max-w-5xl mx-auto space-y-4">
@@ -238,7 +255,7 @@ export default function FiscalizacaoNovo() {
             <div>
               <div className="form-section-title">{isPescaLudica ? "Pescador" : "Timoneiro / Arrais / Mestre"}</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div className="sm:col-span-2"><Label className="text-xs text-muted-foreground">Nome {isPescaLudica && <span className="text-red-500">*</span>}</Label><UpperInput value={form.timoneiro_nome} onChange={e => u("timoneiro_nome", e.target.value)} className="rounded-sm mt-1" data-testid="campo-timoneiro-nome" /></div>
+                <div className="sm:col-span-2"><Label className="text-xs text-muted-foreground">Nome {(isPescaLudica || showRequiredMestre) && <span className="text-red-500">*</span>}</Label><UpperInput value={form.timoneiro_nome} onChange={e => u("timoneiro_nome", e.target.value)} className="rounded-sm mt-1" data-testid="campo-timoneiro-nome" /></div>
                 <div><Label className="text-xs text-muted-foreground">NIF {isPescaLudica && <span className="text-red-500">*</span>}</Label><NIFInput value={form.timoneiro_nif} onChange={e => u("timoneiro_nif", e.target.value)} className="rounded-sm mt-1" /></div>
                 <div className="sm:col-span-2"><Label className="text-xs text-muted-foreground">Morada</Label><UpperInput value={form.timoneiro_morada} onChange={e => u("timoneiro_morada", e.target.value)} className="rounded-sm mt-1" /></div>
                 <div><Label className="text-xs text-muted-foreground">NR ID {isPescaLudica && <span className="text-red-500">*</span>}</Label><Input value={form.timoneiro_id} onChange={e => u("timoneiro_id", e.target.value)} className="rounded-sm mt-1" /></div>
@@ -249,7 +266,7 @@ export default function FiscalizacaoNovo() {
                   <>
                     <div><Label className="text-xs text-muted-foreground">Naturalidade</Label><UpperInput value={form.timoneiro_naturalidade} onChange={e => u("timoneiro_naturalidade", e.target.value)} className="rounded-sm mt-1" /></div>
                     <div><Label className="text-xs text-muted-foreground">Profissao</Label><UpperInput value={form.timoneiro_profissao} onChange={e => u("timoneiro_profissao", e.target.value)} className="rounded-sm mt-1" /></div>
-                    <div><Label className="text-xs text-muted-foreground">N. Carta / I.M.</Label><Input value={form.timoneiro_carta} onChange={e => u("timoneiro_carta", e.target.value)} className="rounded-sm mt-1" /></div>
+                    <div><Label className="text-xs text-muted-foreground">N. Carta / I.M. {showRequiredMestre && <span className="text-red-500">*</span>}</Label><Input value={form.timoneiro_carta} onChange={e => u("timoneiro_carta", e.target.value)} className="rounded-sm mt-1" /></div>
                     <div><Label className="text-xs text-muted-foreground">Categoria</Label><UpperInput value={form.timoneiro_categoria} onChange={e => u("timoneiro_categoria", e.target.value)} className="rounded-sm mt-1" /></div>
                     <div><Label className="text-xs text-muted-foreground">Validade Carta</Label><DateInput value={form.timoneiro_carta_validade} onChange={e => u("timoneiro_carta_validade", e.target.value)} className="rounded-sm mt-1" /></div>
                   </>
@@ -281,7 +298,7 @@ export default function FiscalizacaoNovo() {
               <>
                 <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-sm border border-blue-100">
                   <Checkbox checked={form.mesmo_proprietario} onCheckedChange={v => u("mesmo_proprietario", v)} data-testid="mesmo-proprietario" />
-                  <Label className="text-xs font-semibold">Proprietario e o mesmo que Timoneiro/Arrais/Mestre</Label>
+                  <Label className="text-xs font-semibold">Proprietario e o mesmo</Label>
                 </div>
                 <div>
                   <div className="form-section-title">Proprietario</div>
@@ -329,8 +346,8 @@ export default function FiscalizacaoNovo() {
             <div>
               <div className="form-section-title">Embarcacao</div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div><Label className="text-xs text-muted-foreground">Nome</Label><UpperInput value={form.embarcacao_nome} onChange={e => u("embarcacao_nome", e.target.value)} className="rounded-sm mt-1" data-testid="campo-embarcacao-nome" /></div>
-                <div><Label className="text-xs text-muted-foreground">CON.ID.</Label><UpperInput value={form.embarcacao_con_id} onChange={e => u("embarcacao_con_id", e.target.value)} className="rounded-sm mt-1" /></div>
+                <div><Label className="text-xs text-muted-foreground">Nome {isPescaProf && <span className="text-red-500">*</span>}</Label><UpperInput value={form.embarcacao_nome} onChange={e => u("embarcacao_nome", e.target.value)} className="rounded-sm mt-1" data-testid="campo-embarcacao-nome" /></div>
+                <div><Label className="text-xs text-muted-foreground">C.I. {isPescaProf && <span className="text-red-500">*</span>}</Label><UpperInput value={form.embarcacao_con_id} onChange={e => u("embarcacao_con_id", e.target.value)} className="rounded-sm mt-1" /></div>
                 <div><Label className="text-xs text-muted-foreground">Call Sign</Label><UpperInput value={form.embarcacao_call_sign} onChange={e => u("embarcacao_call_sign", e.target.value)} className="rounded-sm mt-1" /></div>
               </div>
             </div>
@@ -371,7 +388,9 @@ export default function FiscalizacaoNovo() {
                   <Checkbox checked={form.documentos[f]?.presente || false} onCheckedChange={v => uDoc(f, "presente", v)} />
                   <div className="flex-1">
                     <Label className="text-xs font-semibold">{DOC_LABELS[f]}</Label>
-                    <DateInput value={form.documentos[f]?.validade || ""} onChange={e => uDoc(f, "validade", e.target.value)} className="rounded-sm mt-1 h-7 text-xs" />
+                    {f !== "diario_pesca" && (
+                      <DateInput value={form.documentos[f]?.validade || ""} onChange={e => uDoc(f, "validade", e.target.value)} className="rounded-sm mt-1 h-7 text-xs" />
+                    )}
                   </div>
                 </div>
               ))}
@@ -380,15 +399,45 @@ export default function FiscalizacaoNovo() {
         )}
 
         {activeTab === "palamenta" && (
-          <div>
-            <div className="form-section-title">Meios de Salvacao e Equipamentos</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-              {MEIOS_FIELDS.map(f => (
-                <div key={f} className="flex items-center gap-2 p-2 bg-slate-50 rounded-sm border border-slate-100">
-                  <Checkbox checked={form.meios_salvacao[f] || false} onCheckedChange={v => uMeio(f, v)} />
-                  <Label className="text-xs">{MEIOS_LABELS[f]}</Label>
-                </div>
-              ))}
+          <div className="space-y-5">
+            {/* Equipamentos com validade obrigatoria */}
+            <div>
+              <div className="form-section-title">Equipamentos com Validade</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {MEIOS_COM_VALIDADE.map(f => (
+                  <div key={f} className="p-3 bg-slate-50 rounded-sm border border-slate-100 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={form.meios_salvacao[f]?.presente || false} onCheckedChange={v => uMeio(f, { ...(form.meios_salvacao[f] || {}), presente: v })} />
+                      <Label className="text-xs font-semibold">{MEIOS_LABELS[f]}</Label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Estado</Label>
+                        <Select value={form.meios_salvacao[f]?.estado || ""} onValueChange={v => uMeio(f, { ...(form.meios_salvacao[f] || {}), estado: v })}>
+                          <SelectTrigger className="h-7 text-xs rounded-sm"><SelectValue placeholder="--" /></SelectTrigger>
+                          <SelectContent><SelectItem value="OK">OK</SelectItem><SelectItem value="ND">ND</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Validade</Label>
+                        <DateInput value={form.meios_salvacao[f]?.validade || ""} onChange={e => uMeio(f, { ...(form.meios_salvacao[f] || {}), validade: e.target.value })} className="rounded-sm h-7 text-xs" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Restantes equipamentos (checkbox simples) */}
+            <div>
+              <div className="form-section-title">Outros Meios de Salvacao e Equipamentos</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {MEIOS_FIELDS.filter(f => !MEIOS_COM_VALIDADE.includes(f)).map(f => (
+                  <div key={f} className="flex items-center gap-2 p-2 bg-slate-50 rounded-sm border border-slate-100">
+                    <Checkbox checked={form.meios_salvacao[f] || false} onCheckedChange={v => uMeio(f, v)} />
+                    <Label className="text-xs">{MEIOS_LABELS[f]}</Label>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
