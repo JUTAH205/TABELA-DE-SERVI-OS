@@ -23,7 +23,7 @@ const TABS_CONFIG = {
   caca_submarina: ["identificacao", "atividade", "observacoes"],
   apanha_profissional: ["identificacao", "atividade", "observacoes"],
   pesca_profissional: ["identificacao", "embarcacao", "documentos", "palamenta", "atividade", "observacoes", "apoio"],
-  recreio: ["identificacao", "embarcacao", "documentos", "palamenta", "atividade", "observacoes", "apoio"],
+  recreio: ["identificacao", "embarcacao", "documentos", "palamenta", "observacoes", "apoio"],
   maritimo_turistica: ["identificacao", "embarcacao", "documentos", "palamenta", "atividade", "observacoes", "apoio"],
   operador_mt: ["identificacao", "atividade", "observacoes"],
   tl_reb_auxl: ["identificacao", "embarcacao", "documentos", "palamenta", "atividade", "observacoes", "apoio"],
@@ -36,6 +36,9 @@ const MEIOS_COM_VALIDADE = ["f_mao", "paraq", "fumig", "extintor", "jangada"];
 
 const DOC_FIELDS = ["titulo_prop", "c_arqueacao", "c_lotacao_seguranca", "seguro", "c_nav_vistoria", "rol_tripulacao", "c_agulhas", "cedulas_marit", "l_estacao", "cert_insp_balsas", "diario_pesca"];
 const DOC_LABELS = {"titulo_prop":"Titulo Prop.", "c_arqueacao":"C. Arqueacao", "c_lotacao_seguranca":"C. Lotacao Seg.", "seguro":"Seguro", "c_nav_vistoria":"C. Nav/Vistoria", "rol_tripulacao":"Rol Tripulacao", "c_agulhas":"C. Agulhas", "cedulas_marit":"Cedulas Marit.", "l_estacao":"L. Estacao", "cert_insp_balsas":"Cert. Insp. Balsas", "diario_pesca":"Diario Pesca"};
+
+const DOC_FIELDS_RECREIO = ["seguro", "c_nav_vistoria", "taxa_farolagem", "cert_insp_balsas", "l_estacao"];
+const DOC_LABELS_RECREIO = {"seguro":"Seguro", "c_nav_vistoria":"Livrete / Vistoria", "taxa_farolagem":"Taxa de Farolagem", "cert_insp_balsas":"Cert. Insp. Balsas", "l_estacao":"L. Estacao"};
 
 const MEIOS_FIELDS = ["f_mao", "paraq", "fumig", "extintor", "jangada", "coletes", "inscricoes", "primeiros_socorros", "lanterna_pilhas", "faca_ponta_redond", "bussola", "ferro_fundear", "ap_sonoro", "bandeira_nacional", "cabo_reboque", "boia_circular", "agulha_magnetica", "espelho", "luzes_navegacao", "cartas_publicacoes"];
 const MEIOS_LABELS = {"f_mao":"F. Mao", "paraq":"Paraq.", "fumig":"Fumig.", "extintor":"Extintor", "jangada":"Jangada", "coletes":"Coletes", "inscricoes":"Inscricoes", "primeiros_socorros":"1.os Socorros", "lanterna_pilhas":"Lanterna+Pilhas", "faca_ponta_redond":"Faca P. Redond.", "bussola":"Bussola", "ferro_fundear":"Ferro Fundear", "ap_sonoro":"Ap. Sonoro", "bandeira_nacional":"Band. Nacional", "cabo_reboque":"Cabo Reboque", "boia_circular":"Boia Circular", "agulha_magnetica":"Agulha Magn.", "espelho":"Espelho", "luzes_navegacao":"Luzes Nav.", "cartas_publicacoes":"Cartas/Pub."};
@@ -162,6 +165,18 @@ export default function FiscalizacaoNovo() {
         return;
       }
     }
+    // Validation for Recreio required fields
+    if (selectedTipo === "recreio") {
+      const missing = [];
+      if (!form.timoneiro_nome?.trim()) missing.push("Nome Timoneiro");
+      if (!form.embarcacao_nome?.trim()) missing.push("Nome Embarcacao");
+      if (!form.embarcacao_con_id?.trim()) missing.push("C.I.");
+      if (missing.length > 0) {
+        toast.error(`Campos obrigatorios em falta: ${missing.join(", ")}`);
+        setSaving(false);
+        return;
+      }
+    }
     setSaving(true);
     try {
       if (isEditing) { await api.updateFisc(id, form); toast.success("Registo atualizado"); }
@@ -190,10 +205,11 @@ export default function FiscalizacaoNovo() {
   const tabs = TABS_CONFIG[selectedTipo] || ["identificacao", "observacoes"];
   const isPescaLudica = selectedTipo === "pesca_ludica";
   const isPescaProf = selectedTipo === "pesca_profissional";
+  const isRecreio = selectedTipo === "recreio";
   const hasPropSection = !["operador_mt", "pesca_ludica"].includes(selectedTipo);
   const hasOperadorSection = ["maritimo_turistica", "operador_mt", "tl_reb_auxl"].includes(selectedTipo);
   const currentTabLabels = (isPescaLudica || isPescaProf) ? TAB_LABELS_LICENCA : TAB_LABELS;
-  const showRequiredMestre = isPescaProf;
+  const showRequiredMestre = isPescaProf || isRecreio;
 
   return (
     <div data-testid="fisc-form-page" className="max-w-5xl mx-auto space-y-4">
@@ -253,7 +269,7 @@ export default function FiscalizacaoNovo() {
           <div className="space-y-5">
             {/* Timoneiro / Arrais / Mestre — ou "Pescador" para Pesca Ludica */}
             <div>
-              <div className="form-section-title">{isPescaLudica ? "Pescador" : "Timoneiro / Arrais / Mestre"}</div>
+              <div className="form-section-title">{isPescaLudica ? "Pescador" : isRecreio ? "Timoneiro" : "Timoneiro / Arrais / Mestre"}</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div className="sm:col-span-2"><Label className="text-xs text-muted-foreground">Nome {(isPescaLudica || showRequiredMestre) && <span className="text-red-500">*</span>}</Label><UpperInput value={form.timoneiro_nome} onChange={e => u("timoneiro_nome", e.target.value)} className="rounded-sm mt-1" data-testid="campo-timoneiro-nome" /></div>
                 <div><Label className="text-xs text-muted-foreground">NIF {isPescaLudica && <span className="text-red-500">*</span>}</Label><NIFInput value={form.timoneiro_nif} onChange={e => u("timoneiro_nif", e.target.value)} className="rounded-sm mt-1" /></div>
@@ -346,8 +362,8 @@ export default function FiscalizacaoNovo() {
             <div>
               <div className="form-section-title">Embarcacao</div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div><Label className="text-xs text-muted-foreground">Nome {isPescaProf && <span className="text-red-500">*</span>}</Label><UpperInput value={form.embarcacao_nome} onChange={e => u("embarcacao_nome", e.target.value)} className="rounded-sm mt-1" data-testid="campo-embarcacao-nome" /></div>
-                <div><Label className="text-xs text-muted-foreground">C.I. {isPescaProf && <span className="text-red-500">*</span>}</Label><UpperInput value={form.embarcacao_con_id} onChange={e => u("embarcacao_con_id", e.target.value)} className="rounded-sm mt-1" /></div>
+                <div><Label className="text-xs text-muted-foreground">Nome {(isPescaProf || isRecreio) && <span className="text-red-500">*</span>}</Label><UpperInput value={form.embarcacao_nome} onChange={e => u("embarcacao_nome", e.target.value)} className="rounded-sm mt-1" data-testid="campo-embarcacao-nome" /></div>
+                <div><Label className="text-xs text-muted-foreground">C.I. {(isPescaProf || isRecreio) && <span className="text-red-500">*</span>}</Label><UpperInput value={form.embarcacao_con_id} onChange={e => u("embarcacao_con_id", e.target.value)} className="rounded-sm mt-1" /></div>
                 <div><Label className="text-xs text-muted-foreground">Call Sign</Label><UpperInput value={form.embarcacao_call_sign} onChange={e => u("embarcacao_call_sign", e.target.value)} className="rounded-sm mt-1" /></div>
               </div>
             </div>
@@ -383,17 +399,21 @@ export default function FiscalizacaoNovo() {
           <div>
             <div className="form-section-title">Documentos</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {DOC_FIELDS.map(f => (
-                <div key={f} className="flex items-center gap-2 p-2 bg-slate-50 rounded-sm border border-slate-100">
-                  <Checkbox checked={form.documentos[f]?.presente || false} onCheckedChange={v => uDoc(f, "presente", v)} />
-                  <div className="flex-1">
-                    <Label className="text-xs font-semibold">{DOC_LABELS[f]}</Label>
-                    {f !== "diario_pesca" && (
-                      <DateInput value={form.documentos[f]?.validade || ""} onChange={e => uDoc(f, "validade", e.target.value)} className="rounded-sm mt-1 h-7 text-xs" />
-                    )}
+              {(isRecreio ? DOC_FIELDS_RECREIO : DOC_FIELDS).map(f => {
+                const labels = isRecreio ? DOC_LABELS_RECREIO : DOC_LABELS;
+                const hideValidade = !isRecreio && f === "diario_pesca";
+                return (
+                  <div key={f} className="flex items-center gap-2 p-2 bg-slate-50 rounded-sm border border-slate-100">
+                    <Checkbox checked={form.documentos[f]?.presente || false} onCheckedChange={v => uDoc(f, "presente", v)} />
+                    <div className="flex-1">
+                      <Label className="text-xs font-semibold">{labels[f]}</Label>
+                      {!hideValidade && (
+                        <DateInput value={form.documentos[f]?.validade || ""} onChange={e => uDoc(f, "validade", e.target.value)} className="rounded-sm mt-1 h-7 text-xs" />
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -415,7 +435,7 @@ export default function FiscalizacaoNovo() {
                         <Label className="text-xs text-muted-foreground">Estado</Label>
                         <Select value={form.meios_salvacao[f]?.estado || ""} onValueChange={v => uMeio(f, { ...(form.meios_salvacao[f] || {}), estado: v })}>
                           <SelectTrigger className="h-7 text-xs rounded-sm"><SelectValue placeholder="--" /></SelectTrigger>
-                          <SelectContent><SelectItem value="OK">OK</SelectItem><SelectItem value="ND">ND</SelectItem></SelectContent>
+                          <SelectContent><SelectItem value="OK">OK</SelectItem><SelectItem value="NAO_OK">Nao OK</SelectItem><SelectItem value="EM_FALTA">Em falta</SelectItem></SelectContent>
                         </Select>
                       </div>
                       <div>

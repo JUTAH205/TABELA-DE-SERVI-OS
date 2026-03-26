@@ -25,6 +25,7 @@ Digitalizar o sistema de gestão da Polícia Marítima (Açores) actualmente em 
 - [x] GPS inline formatting (sem overlay font-mono, sem parêntesis) — corrigido 26/03/2026
 - [x] Pesca Lúdica: "Pescador" em vez de "Timoneiro", campos obrigatórios com validação, checkbox "Pesca Lúdica Embarcada", Proprietário/Operador removidos, tab "Licença/Capturas" — 26/03/2026
 - [x] Pesca Profissional: checkbox "Proprietário é o mesmo", campos obrigatórios (Nome Mestre*, Carta/IM*, Embarcação*, C.I.*), D.Pesca sem validade, Palamenta com estado+validade (F.Mão, Paraq, Fumig, Extintor, Jangada), tab "Licença/Capturas" — 26/03/2026
+- [x] Recreio: título "Timoneiro", tab Atividade removido, docs reduzidos a 5 (Seguro, Livrete/Vistoria, Taxa Farolagem, Cert.Insp.Balsas, L.Estação), Palamenta com estado (OK/Não OK/Em falta)+validade, campos obrigatórios (Nome*, Embarcação*, C.I.*) — 26/03/2026
 
 ## Tarefas Pendentes
 
