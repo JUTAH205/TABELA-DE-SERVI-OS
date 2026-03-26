@@ -23,6 +23,7 @@ Digitalizar o sistema de gestão da Polícia Marítima (Açores) actualmente em 
 - [x] Checkbox para ligar Proprietário=Timoneiro e Operador=Proprietário
 - [x] Nomenclatura corrigida: "NR ID" em vez de "N. CC"
 - [x] GPS inline formatting (sem overlay font-mono, sem parêntesis) — corrigido 26/03/2026
+- [x] Pesca Lúdica: "Pescador" em vez de "Timoneiro", campos obrigatórios com validação, checkbox "Pesca Lúdica Embarcada", Proprietário/Operador removidos, tab "Licença/Capturas" — 26/03/2026
 
 ## Tarefas Pendentes
 
